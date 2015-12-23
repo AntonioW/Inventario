@@ -331,6 +331,60 @@ public class AcervoDAO {
 		return null;
 	}*/  /*****************************************/
 	
+	
+	
+	/***********QuintaFeira*************************/
+	/***********tentandoEncontrarLocalizacaotombosvizinhos*****************/
+	public String[] SelecionarLocalicaoDosVizinhos(int seq){
+		String [] temp =  this.getLivrosVizinhos(seq);
+		/*
+		for (int i = 0; i < temp.length; i++){
+			
+			System.out.println(temp[i]);
+			
+		}*/
+		
+		return temp;
+	}
+	
+	
+	
+	@SuppressWarnings("null")
+	public String[] getLocalizacaoLivrosVizinhos(String [] vizinhos){
+		String [] localizacoes = null;
+		String sql = "select localizacao" 
+				+ " from (select tombo, localizacao" 
+				+ " from acervo_siabi, acervo_estante2"
+				+ " where acervo_estante2.cod_barras = acervo_siabi.tombo) as tomboloc"
+				+ " where tombo = ";
+		ResultSet rs;
+		try{
+			
+			for (int i = 0; i < vizinhos.length; i++) {
+				PreparedStatement st = conexao.prepareStatement(sql + vizinhos[i] + ";");
+				st.execute();
+				rs = st.getResultSet();
+				//if(rs.isLast()){
+				//localizacoes[i] = rs.getString(1);
+				rs.beforeFirst();
+				while(rs.next()){
+					localizacoes[i] = rs.getString(1);
+					System.out.println(rs.getString(1));
+				}
+				/*else {
+					localizacoes[i] = null; 
+				}*/
+			}
+			return localizacoes;
+			
+		} catch (SQLException e){
+			e.printStackTrace();
+			return null;
+		}
+		
+	}
+	
+	//tápegandosóostombos
 	public String[] getLivrosVizinhos(int seq){
 		String sql = "select cod_barras"
 				+ " from acervo_estante2"
@@ -358,7 +412,154 @@ public class AcervoDAO {
 		}
 	}
 		
+	
+	/*
+	 * possivel utilização no selecionarlocalizacaovizinhos2
+	 * evitando que se localize os vizinhos de numeros de sequencia que não estao na tabela
+	 */ 
+	 
+	public int CalcularTamanhoDeUmaTabela(String NomeTabela){
+		String sql = "Select count(*) as total"
+				+ " from " + NomeTabela + ";";
+		try{
+			PreparedStatement st = conexao.prepareStatement(sql);
+			st.execute();
+			ResultSet rs = st.getResultSet();
+			rs.beforeFirst();
+			if (rs.next()){
+			return rs.getInt(1);
+			} else return -1;
+			
+		}catch (SQLException e){
+			e.printStackTrace();
+			return -1;
+		}
 		
+	}
+	
+	
+	//RETORNA AS CDDs dos vizinhos, no entanto, pode apresentar um valor para seqs menores ou maiores que o numero total de rows
+	public ResultSet getLocalizacaoDosVizinhos2(int seq){
+		String sql = "SELECT localizacao" 
+				+ " FROM (select cod_barras"
+				+ " from acervo_estante2"
+				+ " where ((seq = " + seq + " + 1)"
+				+ " OR (seq =  " + seq + " + 2)" 
+				+ " OR (seq =  " + seq + " - 2)" 
+				+ " OR (seq =  " + seq + " - 1))) as vizinhos, acervo_siabi" 
+				+ " WHERE cod_barras = tombo;";
+		try {
+			PreparedStatement st = conexao.prepareStatement(sql);
+			st.execute(sql); 
+			ResultSet rs = st.getResultSet();
+			return rs;
+			
+		} catch (SQLException e){
+			e.printStackTrace();
+			return null;
+		}
+	
+	}
+	
+	
+	/*ultrapassado*/
+	public ResultSet SelecionarTresUltimasLinhas(String NomeTabela){
+		int tamanho = this.CalcularTamanhoDeUmaTabela(NomeTabela);
+		String sql = "SELECT * from " + NomeTabela + ";";
+		String [] ultimos = new String [3];
+		int i = 1;
+		try{
+			PreparedStatement st = conexao.prepareStatement(sql);
+			st.execute(sql);
+			ResultSet rs = st.getResultSet();
+			int z = 0;
+			while (rs.next()){
+				i++;
+				if (i > (tamanho - 3)){
+					//ultimos[z] = rs.getString(1);
+					System.out.println("tam: " + tamanho);
+					z++;
+				}
+			}
+			return null;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+		
+	}
+	
+	
+	//assume que todas as tabelas passadas terão um campo sequência
+	public ResultSet getTresUltimasLinhas(String nome_tabela){
+		String sql = "SELECT *"
+				+ " FROM (select count(*) as ult"
+				+ " from " + nome_tabela + ") as ultimo, " 
+				+ nome_tabela + " where seq > (ult - 3);"; 
+
+		try{
+			PreparedStatement st = conexao.prepareStatement(sql);
+			st.execute(sql);
+			ResultSet rs = st.getResultSet();
+			return rs;
+		}catch (SQLException e){
+			e.printStackTrace();
+			return null;
+		}
+
+	}
+	
+	public ResultSet selecionarItensParaVerificacao(){
+		String sql = "select *" 
+				+ " from acervo_estante"
+				+ " where verificar is not null;";
+		try{
+			Statement st = conexao.prepareStatement(sql);
+			st.execute(sql);
+			ResultSet rs = st.getResultSet();
+			return rs;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	
+	}
+	
+	//22-12-noite
+	public void inserirLinha(String cod_barras, String verif){
+    	int numeroSequencia_ultimo = 0;
+    	String sql2 = "Select count(*) as total from acervo_estante2";
+		
+		try{
+			Statement st = conexao.prepareStatement(sql2);
+			st.execute(sql2);
+			ResultSet rs = st.getResultSet();
+			rs.last();
+			numeroSequencia_ultimo = rs.getInt(1);
+			numeroSequencia_ultimo++;
+			String sql = "Insert into acervo_estante2 (seq, cod_barras, verificar) values"
+	    			+ " (" + numeroSequencia_ultimo + ", " + cod_barras + ", \"" + verif + "\");";
+			st = conexao.prepareStatement(sql);
+			st.execute(sql);
+			
+		}catch(SQLException e){
+			e.printStackTrace();
+		}
+    	
+    }
+	
+	
+	public void removerUltimaLinha(){
+		String sql = "delete from acervo_estante2 where ("
+				+ " select seq from (select count(*) ultimo from acervo_estante2) as tamanho where seq = ultimo);";
+		try {
+			Statement st = conexao.prepareStatement(sql);
+			st.execute(sql);
+		} catch(SQLException e){
+			e.printStackTrace();
+		}
+	}
+	
 	public static void main(String args[]){
 		AcervoDAO acd = new AcervoDAO();
 		System.out.println(acd.calculaTotalCadastrados());
@@ -378,51 +579,43 @@ public class AcervoDAO {
 		//System.out.println(t[1]);
 		//System.out.println(t[2]);
 		//System.out.println(t[3] + "---");
-		ResultSet rs =	acd.selecionarNãoCadastrados(); 
-		/*try {
-			rs.first();
-		} catch (SQLException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+		//String [] tombs = acd.SelecionarLocalicaoDosVizinhos(1);
+		//System.out.println(tombs[0] +" - "+ tombs[1]);// + " - " +  tombs[2] + " - " + tombs[3]);
+		//String [] locs = acd.getLocalizacaoLivrosVizinhos(tombs);
+		ResultSet rs = acd.getLocalizacaoDosVizinhos2(2);
 		try {
 			while (rs.next()){
-				System.out.println(rs.getString(1));
+				System.out.println(rs.getString(1) + " - ");
 			}
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}  												/*aqui*/
-		//acd.criarTabelaNaoCadastrados();
-		/*String dois[] = new String[2];
-		String um[] = new String[1];
-		System.out.println(dois.length);
-		dois = um;
-		System.out.println(um.length);
-		System.out.println(dois.length);*/
-		ResultSet t = acd.test();
-		try {
-			t.last();
-			if (t.getRow() > 0){
-				t.first(); System.out.println(t.getString(1));
-			}
-		} catch (SQLException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
 		}
-		/*try {
-			
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
-			System.out.println(t.getString(1));
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
 		
+		System.out.println("Total: " + acd.CalcularTamanhoDeUmaTabela("acervo_siabi") );
+		//rs = acd.SelecionarTresUltimasLinhas("acervo_siabi");
+		//rs = acd.getTresUltimasLinhas("acervo_estante2");
+		rs = acd.selecionarItensParaVerificacao();
+		try {
+			//rs.beforeFirst();
+			while (rs.next()){
+				System.out.print(rs.getString(1) + " ");
+				System.out.println(rs.getString(2) + " ");
+				//System.out.println(rs.getString(3)+ " ");
+				/*System.out.print(rs.getString(4)+ " ");
+				System.out.print(rs.getString(5)+ " ");
+				System.out.print(rs.getString(6)+ " ");
+				System.out.print(rs.getString(7)+ " ");
+				System.out.print(rs.getString(8)+ " ");
+				System.out.println(rs.getString(9));*/
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		acd.inserirLinha("221221015", "kkk4");
+		//acd.removerUltimaLinha();
 	}
 }
 
